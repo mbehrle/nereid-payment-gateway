@@ -3,3 +3,4 @@
 
 coverage
 flake8
+git+ssh://git@github.com/openlabs/nereid-checkout.git@develop
