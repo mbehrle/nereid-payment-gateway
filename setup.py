@@ -12,6 +12,13 @@ def read(fname):
     return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 
+def get_required_version(name):
+    return '%s >= %s.%s, < %s.%s' % (
+        name, major_version, minor_version,
+        major_version, minor_version + 1
+    )
+
+
 class PostgresTest(Command):
     """
     Run the tests on Postgres.
@@ -73,21 +80,19 @@ requires = []
 MODULE2PREFIX = {}
 
 MODULE = "nereid_payment_gateway"
-PREFIX = "n"
+PREFIX = "openlabs"
+
+MODULE2PREFIX = {
+    'payment_gateway': 'openlabs',
+}
 for dep in info.get('depends', []):
     if not re.match(r'(ir|res|webdav)(\W|$)', dep):
         requires.append(
-            '%s_%s >= %s.%s, < %s.%s' % (
-                MODULE2PREFIX.get(dep, 'trytond'), dep,
-                major_version, minor_version, major_version,
-                minor_version + 1
-            )
+            get_required_version('%s_%s' % (
+                MODULE2PREFIX.get(dep, 'trytond'), dep
+            ))
         )
-requires.append(
-    'trytond >= %s.%s, < %s.%s' % (
-        major_version, minor_version, major_version, minor_version + 1
-    )
-)
+requires.append(get_required_version('trytond'))
 setup(
     name='%s_%s' % (PREFIX, MODULE),
     version=info.get('version', '0.0.1'),
@@ -126,5 +131,10 @@ setup(
     """ % (MODULE, MODULE),
     test_suite='tests',
     test_loader='trytond.test_loader:Loader',
-    cmdclass={'test_on_postgres': PostgresTest}
+    cmdclass={'test_on_postgres': PostgresTest},
+    tests_require=[
+        'pycountry',
+        get_required_version('trytond_nereid_checkout'),
+        get_required_version('openlabs_payment_gateway_authorize_net'),
+    ],
 )
