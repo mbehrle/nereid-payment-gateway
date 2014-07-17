@@ -9,7 +9,7 @@ from datetime import datetime
 
 from trytond.pool import PoolMeta, Pool
 from nereid import route, login_required, render_template, request, \
-    current_user, redirect, url_for, flash, jsonify
+    current_user, redirect, url_for, flash, jsonify, abort
 from flask_wtf import Form
 from wtforms import TextField, validators, \
     ValidationError, SelectField, IntegerField
@@ -139,6 +139,31 @@ class Party:
                     return 'success', 200
                 return redirect(url_for('party.party.view_payment_profiles'))
         return render_template('add-card.jinja', form=form)
+
+    @classmethod
+    @route("/my-cards/remove-card", methods=["POST"])
+    @login_required
+    def remove_payment_profile(cls):
+        """
+        Make payment profile inactive if user removes the credit card.
+        """
+        PaymentProfile = Pool().get('party.payment_profile')
+
+        profiles = PaymentProfile.search([
+            ('id', '=', request.form['profile_id']),
+            ('party', '=', current_user.party.id),
+        ])
+        if not profiles:
+            abort(403)
+
+        payment_profile, = profiles
+        payment_profile.active = False
+        payment_profile.save()
+        if request.is_xhr:
+            return 'success', 200
+
+        flash(_('Payment Profile has been deleted successfully!'))
+        return redirect(request.referrer)
 
 
 class PaymentProfile:

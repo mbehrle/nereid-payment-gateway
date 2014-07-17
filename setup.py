@@ -134,7 +134,6 @@ setup(
     cmdclass={'test_on_postgres': PostgresTest},
     tests_require=[
         'pycountry',
-        get_required_version('trytond_nereid_checkout'),
         get_required_version('openlabs_payment_gateway_authorize_net'),
     ],
 )

@@ -21,9 +21,6 @@ class TestCreditCard(NereidTestCase):
     "Test Payment profiles"
 
     def setUp(self):
-        trytond.tests.test_tryton.install_module(
-            'nereid_checkout'
-        )
 
         trytond.tests.test_tryton.install_module(
             'payment_gateway_authorize_net'
@@ -31,21 +28,14 @@ class TestCreditCard(NereidTestCase):
 
         trytond.tests.test_tryton.install_module('nereid_payment_gateway')
 
-        self.Sale = POOL.get('sale.sale')
-        self.Cart = POOL.get('nereid.cart')
-        self.Product = POOL.get('product.product')
-        self.ProductTemplate = POOL.get('product.template')
         self.UrlMap = POOL.get('nereid.url_map')
         self.Language = POOL.get('ir.lang')
         self.NereidWebsite = POOL.get('nereid.website')
-        self.Uom = POOL.get('product.uom')
         self.Country = POOL.get('country.country')
         self.Subdivision = POOL.get('country.subdivision')
         self.Currency = POOL.get('currency.currency')
         self.NereidUser = POOL.get('nereid.user')
         self.User = POOL.get('res.user')
-        self.PriceList = POOL.get('product.price_list')
-        self.Location = POOL.get('stock.location')
         self.Party = POOL.get('party.party')
         self.Company = POOL.get('company.company')
         self.Locale = POOL.get('nereid.website.locale')
@@ -198,12 +188,6 @@ class TestCreditCard(NereidTestCase):
         self._create_countries()
         self.available_countries = self.Country.search([], limit=5)
 
-        warehouse, = self.Location.search([
-            ('type', '=', 'warehouse')
-        ], limit=1)
-        location, = self.Location.search([
-            ('type', '=', 'storage')
-        ], limit=1)
         url_map, = self.UrlMap.search([], limit=1)
         en_us, = self.Language.search([('code', '=', 'en_US')])
 
@@ -221,8 +205,6 @@ class TestCreditCard(NereidTestCase):
             'default_locale': self.locale_en_us.id,
             'guest_user': guest_user,
             'countries': [('set', self.available_countries)],
-            'warehouse': warehouse,
-            'stock_location': location,
         }])
 
     def test_0010_add_payment_profile(self):
@@ -475,6 +457,157 @@ class TestCreditCard(NereidTestCase):
                 self.assertTrue(
                     'Address you selected is not valid.'
                     in rv.data
+                )
+
+    def test_0050_remove_payment_profile(self):
+        """
+        Test to inactivate payment profile when user want to remove it.
+        """
+        Address = POOL.get('party.address')
+        Profile = POOL.get('party.payment_profile')
+        Gateway = POOL.get('payment_gateway.gateway')
+        Journal = POOL.get('account.journal')
+
+        with Transaction().start(DB_NAME, USER, CONTEXT):
+            self.setup_defaults()
+            app = self.get_app()
+
+            with app.test_client() as c:
+                self.login(c, 'email@example.com', 'password')
+
+                address, = Address.create([{
+                    'party': self.party2.id,
+                    'name': 'Name',
+                    'street': 'Street',
+                    'streetbis': 'StreetBis',
+                    'zip': 'zip',
+                    'city': 'City',
+                    'country': self.available_countries[0].id,
+                    'subdivision':
+                        self.available_countries[0].subdivisions[0].id,
+                }])
+
+                self._create_auth_net_gateway_for_site()
+                cash_journal, = Journal.search([
+                    ('name', '=', 'Cash')
+                ])
+                gateway, = Gateway.search(['name', '=', 'Authorize.net'])
+
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 0
+                )
+                profile1, = Profile.create([{
+                    'last_4_digits': '1111',
+                    'sequence': '10',
+                    'expiry_month': '01',
+                    'expiry_year': '2018',
+                    'address': address.id,
+                    'party': current_user.party.id,
+                    'provider_reference': '27478839|25062702',
+                    'gateway': gateway.id,
+                }])
+
+                profile2, = Profile.create([{
+                    'last_4_digits': '1131',
+                    'sequence': '10',
+                    'expiry_month': '02',
+                    'expiry_year': '2018',
+                    'address': address.id,
+                    'party': current_user.party.id,
+                    'provider_reference': '27478839|25062710',
+                    'gateway': gateway.id,
+                }])
+
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 2
+                )
+
+                rv = c.post(
+                    '/my-cards/remove-card',
+                    data={
+                        'profile_id':
+                        current_user.party.payment_profiles[0].id,
+                    }
+                )
+
+                self.assertEqual(rv.status_code, 302)
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 1
+                )
+                # Remove payment profile by xhr request
+                rv = c.post(
+                    '/my-cards/remove-card',
+                    data={
+                        'profile_id':
+                        current_user.party.payment_profiles[0].id,
+                    }, headers=[('X-Requested-With', 'XMLHttpRequest')]
+                )
+                self.assertEqual(rv.status_code, 200)
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 0
+                )
+
+    def test_0060_remove_invalid_payment_profile(self):
+        """
+        Test to check if payment profile user wants to remove is valid.
+        """
+        Address = POOL.get('party.address')
+        Profile = POOL.get('party.payment_profile')
+        Gateway = POOL.get('payment_gateway.gateway')
+        Journal = POOL.get('account.journal')
+
+        with Transaction().start(DB_NAME, USER, CONTEXT):
+            self.setup_defaults()
+            app = self.get_app()
+
+            with app.test_client() as c:
+                self.login(c, 'email@example.com', 'password')
+
+                address, = Address.create([{
+                    'party': self.party2.id,
+                    'name': 'Name',
+                    'street': 'Street',
+                    'streetbis': 'StreetBis',
+                    'zip': 'zip',
+                    'city': 'City',
+                    'country': self.available_countries[0].id,
+                    'subdivision':
+                        self.available_countries[0].subdivisions[0].id,
+                }])
+
+                self._create_auth_net_gateway_for_site()
+                cash_journal, = Journal.search([
+                    ('name', '=', 'Cash')
+                ])
+                gateway, = Gateway.search(['name', '=', 'Authorize.net'])
+
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 0
+                )
+                profile1, = Profile.create([{
+                    'last_4_digits': '1111',
+                    'sequence': '10',
+                    'expiry_month': '01',
+                    'expiry_year': '2018',
+                    'address': address.id,
+                    'party': current_user.party.id,
+                    'provider_reference': '27478839|25062702',
+                    'gateway': gateway.id,
+                }])
+
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 1
+                )
+
+                rv = c.post(
+                    '/my-cards/remove-card',
+                    data={
+                        'profile_id': 123,
+                    }
+                )
+                self.assertEqual(rv.status_code, 403)
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 1
                 )
 
 
