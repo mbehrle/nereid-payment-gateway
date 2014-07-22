@@ -204,7 +204,7 @@ class TestCreditCard(NereidTestCase):
             'application_user': USER,
             'default_locale': self.locale_en_us.id,
             'guest_user': guest_user,
-            'countries': [('set', self.available_countries)],
+            'countries': [('add', self.available_countries)],
         }])
 
     def test_0010_add_payment_profile(self):
