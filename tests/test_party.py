@@ -69,7 +69,7 @@ class TestCreditCard(NereidTestCase):
             provider='authorize_net',
             method='credit_card',
             authorize_net_login='327deWY74422',
-            authorize_net_transaction_key='9f777HHT6LeMh5f3',
+            authorize_net_transaction_key='32jF65cTxja88ZA2',
         )
         gatway.save()
 
