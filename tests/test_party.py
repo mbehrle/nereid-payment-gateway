@@ -3,7 +3,7 @@
 
     nereid_payment_gateway test suite
 
-    :copyright: (c) 2010-2014 by Openlabs Technologies & Consulting (P) Ltd.
+    :copyright: (c) 2010-2015 by Openlabs Technologies & Consulting (P) Ltd.
     :license: GPLv3, see LICENSE for more details
 '''
 import unittest
@@ -22,13 +22,8 @@ class TestCreditCard(NereidTestCase):
 
     def setUp(self):
 
-        trytond.tests.test_tryton.install_module(
-            'payment_gateway_authorize_net'
-        )
-
         trytond.tests.test_tryton.install_module('nereid_payment_gateway')
 
-        self.UrlMap = POOL.get('nereid.url_map')
         self.Language = POOL.get('ir.lang')
         self.NereidWebsite = POOL.get('nereid.website')
         self.Country = POOL.get('country.country')
@@ -51,7 +46,7 @@ class TestCreditCard(NereidTestCase):
             ''',
         }
 
-    def _create_auth_net_gateway_for_site(self):
+    def _create_dummy_gateway_for_site(self):
         """
         A helper function that creates the authorize.net gateway and assigns
         it to the websites.
@@ -63,21 +58,20 @@ class TestCreditCard(NereidTestCase):
             ('name', '=', 'Cash')
         ])
 
-        gatway = PaymentGateway(
-            name='Authorize.net',
-            journal=cash_journal,
-            provider='authorize_net',
-            method='credit_card',
-            authorize_net_login='327deWY74422',
-            authorize_net_transaction_key='32jF65cTxja88ZA2',
-        )
-        gatway.save()
+        with Transaction().set_context(use_dummy=True):
+            self.gateway = PaymentGateway(
+                name='Dummy Gateway',
+                journal=cash_journal,
+                provider='dummy',
+                method='credit_card',
+            )
+            self.gateway.save()
 
         websites = self.NereidWebsite.search([])
         self.NereidWebsite.write(websites, {
             'accept_credit_card': True,
             'save_payment_profile': True,
-            'credit_card_gateway': gatway.id,
+            'credit_card_gateway': self.gateway.id,
         })
 
     def _create_countries(self, count=5):
@@ -144,10 +138,6 @@ class TestCreditCard(NereidTestCase):
             'name': 'openlabs',
         }])
 
-        self.party1, = self.Party.create([{
-            'name': 'Guest User',
-        }])
-
         self.party2, = self.Party.create([{
             'name': 'Registered User',
         }])
@@ -162,13 +152,6 @@ class TestCreditCard(NereidTestCase):
         }])
 
         # Create test users
-        guest_user, = self.NereidUser.create([{
-            'party': self.party1.id,
-            'display_name': 'Guest User',
-            'email': 'guest@openlabs.co.in',
-            'password': 'password',
-            'company': self.company.id,
-        }])
         self.registered_user, = self.NereidUser.create([{
             'party': self.party2.id,
             'display_name': 'Registered User',
@@ -188,7 +171,6 @@ class TestCreditCard(NereidTestCase):
         self._create_countries()
         self.available_countries = self.Country.search([], limit=5)
 
-        url_map, = self.UrlMap.search([], limit=1)
         en_us, = self.Language.search([('code', '=', 'en_US')])
 
         self.locale_en_us, = self.Locale.create([{
@@ -199,11 +181,9 @@ class TestCreditCard(NereidTestCase):
 
         self.NereidWebsite.create([{
             'name': 'localhost',
-            'url_map': url_map,
             'company': self.company.id,
             'application_user': USER,
             'default_locale': self.locale_en_us.id,
-            'guest_user': guest_user,
             'countries': [('add', self.available_countries)],
         }])
 
@@ -233,43 +213,44 @@ class TestCreditCard(NereidTestCase):
                         self.available_countries[0].subdivisions[0].id,
                 }])
                 # Define a new payment gateway
-                self._create_auth_net_gateway_for_site()
+                self._create_dummy_gateway_for_site()
                 self.assertEqual(
                     len(current_user.party.payment_profiles), 0
                 )
 
-                c.post(
-                    '/my-cards/add-card',
-                    data={
-                        'owner': 'Test User',
-                        'number': '4111111111111111',
-                        'expiry_month': '01',
-                        'expiry_year': '2018',
-                        'cvv': '111',
-                        'address': address.id,
-                    }
-                )
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 1
-                )
+                with Transaction().set_context({'dummy_succeed': True}):
+                    rv = c.post(
+                        '/my-cards/add-card',
+                        data={
+                            'owner': 'Test User 1',
+                            'number': '4111111111111111',
+                            'expiry_month': '01',
+                            'expiry_year': '2018',
+                            'cvv': '123',
+                            'address': address.id,
+                        }
+                    )
+                    self.assertEqual(
+                        len(current_user.party.payment_profiles), 1
+                    )
 
-                # Test to handel xhr request
-                rv = c.post(
-                    '/my-cards/add-card',
-                    data={
-                        'owner': 'Test User',
-                        'number': '4111111111111111',
-                        'expiry_month': '01',
-                        'expiry_year': '2018',
-                        'cvv': '111',
-                        'address': address.id,
-                    }, headers=[('X-Requested-With', 'XMLHttpRequest')]
+                    # Test to handel xhr request
+                    rv = c.post(
+                        '/my-cards/add-card',
+                        data={
+                            'owner': 'Test User 2',
+                            'number': '4111111111111111',
+                            'expiry_month': '05',
+                            'expiry_year': '2020',
+                            'cvv': '111',
+                            'address': address.id,
+                        }, headers=[('X-Requested-With', 'XMLHttpRequest')]
 
-                )
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 2
-                )
-                self.assertEqual(rv.status_code, 200)
+                    )
+                    self.assertEqual(
+                        len(current_user.party.payment_profiles), 2
+                    )
+                    self.assertEqual(rv.status_code, 200)
 
     def test_0020_view_payment_profiles(self):
         """
@@ -300,12 +281,12 @@ class TestCreditCard(NereidTestCase):
                         self.available_countries[0].subdivisions[0].id,
                 }])
 
-                self._create_auth_net_gateway_for_site()
+                self._create_dummy_gateway_for_site()
                 self.assertEqual(
                     len(current_user.party.payment_profiles), 0
                 )
 
-                gateway, = Gateway.search(['name', '=', 'Authorize.net'])
+                gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
 
                 rv = c.get('/my-cards')
                 self.assertEqual(rv.data, '0')
@@ -324,8 +305,10 @@ class TestCreditCard(NereidTestCase):
                     'gateway': gateway.id,
                 }])
 
-                rv = c.get('/my-cards')
-                self.assertEqual(rv.data, '1')
+                with Transaction().set_context({'dummy_succeed': True}):
+
+                    rv = c.get('/my-cards')
+                    self.assertEqual(rv.data, '1')
 
                 profile, = Profile.create([{
                     'last_4_digits': '1131',
@@ -338,8 +321,9 @@ class TestCreditCard(NereidTestCase):
                     'gateway': gateway.id,
                 }])
 
-                rv = c.get('/my-cards')
-                self.assertEqual(rv.data, '2')
+                with Transaction().set_context({'dummy_succeed': True}):
+                    rv = c.get('/my-cards')
+                    self.assertEqual(rv.data, '2')
 
                 # Test to handel xhr request
                 rv = c.get(
@@ -351,68 +335,6 @@ class TestCreditCard(NereidTestCase):
                 self.assertEqual(len(json_data), 2)
                 self.assertEqual(json_data[0]['last_4_digits'], '1111')
                 self.assertEqual(json_data[1]['last_4_digits'], '1131')
-
-    def test_0030_add_card_with_invalid_data(self):
-        """
-        Test for user trying to add card with invalid credentials.
-        """
-        Address = POOL.get('party.address')
-
-        with Transaction().start(DB_NAME, USER, CONTEXT):
-            self.setup_defaults()
-            app = self.get_app()
-
-            with app.test_client() as c:
-
-                self.login(c, 'email@example.com', 'password')
-
-                address, = Address.create([{
-                    'party': self.party2.id,
-                    'name': 'Name',
-                    'street': 'Street',
-                    'streetbis': 'StreetBis',
-                    'zip': 'zip',
-                    'city': 'City',
-                    'country': self.available_countries[0].id,
-                    'subdivision':
-                        self.available_countries[0].subdivisions[0].id,
-                }])
-                # Define a new payment gateway
-                self._create_auth_net_gateway_for_site()
-
-                # request to add credit card with invalid card number
-                rv = c.post(
-                    '/my-cards/add-card',
-                    data={
-                        'owner': 'Test User',
-                        'number': '1111111',
-                        'expiry_month': '01',
-                        'expiry_year': '2018',
-                        'cvv': '111',
-                        'address': address.id,
-                    }
-                )
-                self.assertEqual(rv.status_code, 302)
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 0
-                )
-
-                # request to add expired credit card.
-                c.post(
-                    '/my-cards/add-card',
-                    data={
-                        'owner': 'Test User',
-                        'number': '4111111111111111',
-                        'expiry_month': '01',
-                        'expiry_year': '2013',
-                        'cvv': '111',
-                        'address': address.id,
-                    }
-                )
-                self.assertEqual(rv.status_code, 302)
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 0
-                )
 
     def test_0040_add_card_with_invalid_address(self):
         """
@@ -440,20 +362,22 @@ class TestCreditCard(NereidTestCase):
                         self.available_countries[0].subdivisions[0].id,
                 }])
                 # Define a new payment gateway
-                self._create_auth_net_gateway_for_site()
+                self._create_dummy_gateway_for_site()
 
-                # request to add credit card with invalid card number
-                rv = c.post(
-                    '/my-cards/add-card',
-                    data={
-                        'owner': 'Test User',
-                        'number': '4111111111111111',
-                        'expiry_month': '01',
-                        'expiry_year': '2018',
-                        'cvv': '111',
-                        'address': 123,
-                    }
-                )
+                with Transaction().set_context({'dummy_succeed': True}):
+
+                    # request to add credit card with invalid card number
+                    rv = c.post(
+                        '/my-cards/add-card',
+                        data={
+                            'owner': 'Test User',
+                            'number': '4111111111111111',
+                            'expiry_month': '01',
+                            'expiry_year': '2018',
+                            'cvv': '111',
+                            'address': 123,
+                        }
+                    )
                 self.assertTrue(
                     'Address you selected is not valid.'
                     in rv.data
@@ -487,11 +411,11 @@ class TestCreditCard(NereidTestCase):
                         self.available_countries[0].subdivisions[0].id,
                 }])
 
-                self._create_auth_net_gateway_for_site()
+                self._create_dummy_gateway_for_site()
                 cash_journal, = Journal.search([
                     ('name', '=', 'Cash')
                 ])
-                gateway, = Gateway.search(['name', '=', 'Authorize.net'])
+                gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
 
                 self.assertEqual(
                     len(current_user.party.payment_profiles), 0
@@ -522,30 +446,32 @@ class TestCreditCard(NereidTestCase):
                     len(current_user.party.payment_profiles), 2
                 )
 
-                rv = c.post(
-                    '/my-cards/remove-card',
-                    data={
-                        'profile_id':
-                        current_user.party.payment_profiles[0].id,
-                    }
-                )
+                with Transaction().set_context({'dummy_succeed': True}):
 
-                self.assertEqual(rv.status_code, 302)
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 1
-                )
-                # Remove payment profile by xhr request
-                rv = c.post(
-                    '/my-cards/remove-card',
-                    data={
-                        'profile_id':
-                        current_user.party.payment_profiles[0].id,
-                    }, headers=[('X-Requested-With', 'XMLHttpRequest')]
-                )
-                self.assertEqual(rv.status_code, 200)
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 0
-                )
+                    rv = c.post(
+                        '/my-cards/remove-card',
+                        data={
+                            'profile_id':
+                            current_user.party.payment_profiles[0].id,
+                        }
+                    )
+
+                    self.assertEqual(rv.status_code, 302)
+                    self.assertEqual(
+                        len(current_user.party.payment_profiles), 1
+                    )
+                    # Remove payment profile by xhr request
+                    rv = c.post(
+                        '/my-cards/remove-card',
+                        data={
+                            'profile_id':
+                            current_user.party.payment_profiles[0].id,
+                        }, headers=[('X-Requested-With', 'XMLHttpRequest')]
+                    )
+                    self.assertEqual(rv.status_code, 200)
+                    self.assertEqual(
+                        len(current_user.party.payment_profiles), 0
+                    )
 
     def test_0060_remove_invalid_payment_profile(self):
         """
@@ -575,11 +501,11 @@ class TestCreditCard(NereidTestCase):
                         self.available_countries[0].subdivisions[0].id,
                 }])
 
-                self._create_auth_net_gateway_for_site()
+                self._create_dummy_gateway_for_site()
                 cash_journal, = Journal.search([
                     ('name', '=', 'Cash')
                 ])
-                gateway, = Gateway.search(['name', '=', 'Authorize.net'])
+                gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
 
                 self.assertEqual(
                     len(current_user.party.payment_profiles), 0
@@ -599,16 +525,18 @@ class TestCreditCard(NereidTestCase):
                     len(current_user.party.payment_profiles), 1
                 )
 
-                rv = c.post(
-                    '/my-cards/remove-card',
-                    data={
-                        'profile_id': 123,
-                    }
-                )
-                self.assertEqual(rv.status_code, 403)
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 1
-                )
+                with Transaction().set_context({'dummy_succeed': True}):
+
+                    rv = c.post(
+                        '/my-cards/remove-card',
+                        data={
+                            'profile_id': 123,
+                        }
+                    )
+                    self.assertEqual(rv.status_code, 403)
+                    self.assertEqual(
+                        len(current_user.party.payment_profiles), 1
+                    )
 
 
 def suite():
