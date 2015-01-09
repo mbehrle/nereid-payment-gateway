@@ -2,7 +2,7 @@
 """
     party.py
 
-    :copyright: (c) 2014 by Openlabs Technologies & Consulting (P) Limited
+    :copyright: (c) 2014-2015 by Openlabs Technologies & Consulting (P) Limited
     :license: BSD, see LICENSE for more details.
 """
 from datetime import datetime
@@ -132,7 +132,7 @@ class Party:
             try:
                 profile_wiz.transition_add()
                 flash(_('Credit Card added successfully!'))
-            except UserError, e:
+            except UserError, e:  # pragma: no cover
                 flash(_(e.message))
             finally:
                 if request.is_xhr:

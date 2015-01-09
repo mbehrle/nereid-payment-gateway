@@ -26,8 +26,7 @@ class SQLiteTest(Command):
         if self.distribution.tests_require:
             self.distribution.fetch_build_eggs(self.distribution.tests_require)
 
-        from trytond.config import CONFIG
-        CONFIG['db_type'] = 'sqlite'
+        os.environ['TRYTOND_DATABASE_URI'] = 'sqlite://'
         os.environ['DB_NAME'] = ':memory:'
 
         from tests import suite
@@ -68,11 +67,7 @@ class PostgresTest(Command):
         os.environ['TZ'] = 'UTC'
 
         def set_config():
-            from trytond.config import CONFIG
-            CONFIG['db_type'] = 'postgresql'
-            CONFIG['db_host'] = 'localhost'
-            CONFIG['db_port'] = 5432
-            CONFIG['db_user'] = 'postgres'
+            os.environ['TRYTOND_DATABASE_URI'] = 'postgresql://'
 
         from trytond.backend.postgresql import Database
         import trytond.tests.test_tryton
@@ -106,8 +101,6 @@ major_version = int(major_version)
 minor_version = int(minor_version)
 
 requires = []
-
-MODULE2PREFIX = {}
 
 MODULE = "nereid_payment_gateway"
 PREFIX = "openlabs"
@@ -167,6 +160,5 @@ setup(
     },
     tests_require=[
         'pycountry',
-        get_required_version('openlabs_payment_gateway_authorize_net'),
     ],
 )
