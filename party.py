@@ -102,7 +102,7 @@ class Party:
     @classmethod
     @route('/my-cards/add-card', methods=['GET', 'POST'])
     @login_required
-    def add_payment_profile(cls):
+    def nereid_add_payment_profile(cls):
         """
         Add card to user profile.
         """
