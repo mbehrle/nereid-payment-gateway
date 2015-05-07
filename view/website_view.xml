@@ -8,10 +8,10 @@ this repository contains the full copyright notices and license terms. -->
               id="credit_card"/>
             <label name="accept_credit_card"/>
             <field name="accept_credit_card"/>
-            <label name="save_payment_profile"/>
-            <field name="save_payment_profile"/>
             <label name="credit_card_gateway"/>
             <field name="credit_card_gateway" xfill="1"/>
+            <label name="save_payment_profile"/>
+            <field name="save_payment_profile"/>
         </page>
     </xpath>
 </data>
