@@ -13,6 +13,8 @@ from nereid import current_user
 class TestCreditCard(NereidTestCase):
     "Test Payment profiles"
 
+    module = 'nereid_payment_gateway'
+
     def setUp(self):
 
         trytond.tests.test_tryton.install_module('nereid_payment_gateway')
