@@ -16,7 +16,7 @@ msgstr "Speicherung von Zahlungsprofilen erlauben"
 
 msgctxt "nereid:party.py:128"
 msgid "Credit Card added successfully!"
-msgstr "Kreditkarte erfolgreich hinzugefügt"
+msgstr "Kreditkarte erfolgreich hinzugefügt."
 
 msgctxt "nereid:party.py:159"
 msgid "Payment Profile has been deleted successfully!"
