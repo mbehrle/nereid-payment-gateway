@@ -17,12 +17,12 @@ _ = make_lazy_gettext('nereid_payment_gateway')
 
 class PaymentProfileForm(Form):
     address = IntegerField([validators.DataRequired()])
-    owner = TextField('Full Name on Card', [validators.DataRequired(), ])
+    owner = TextField(_('Full Name on Card'), [validators.DataRequired(), ])
     number = TextField(
-        'Card Number', [validators.DataRequired(), validators.Length(max=20)]
+        _('Card Number'), [validators.DataRequired(), validators.Length(max=20)]
     )
     expiry_month = SelectField(
-        'Card Expiry Month',
+        _('Card Expiry Month'),
         [validators.DataRequired(), validators.Length(min=2, max=2)],
         choices=[
             ('01', _('01-January')),
@@ -43,12 +43,12 @@ class PaymentProfileForm(Form):
     current_year = datetime.utcnow().date().year
     year_range = (current_year, current_year + 25)
     expiry_year = SelectField(
-        'Card Expiry Year',
+        _('Card Expiry Year'),
         [validators.DataRequired(), validators.NumberRange(*year_range)],
         coerce=int,
     )
     cvv = TextField(
-        'CVD/CVV Number',
+        _('CVD/CVV Number'),
         [validators.DataRequired(), validators.Length(min=3, max=4)]
     )
 
