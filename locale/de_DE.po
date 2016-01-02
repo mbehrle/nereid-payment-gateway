@@ -22,6 +22,18 @@ msgctxt "nereid:party.py:159"
 msgid "Payment Profile has been deleted successfully!"
 msgstr "Das Kreditkartenprofil wurde erfolgreich entfernt."
 
+msgctxt "nereid:party.py:20"
+msgid "Full Name on Card"
+msgstr "Name (wie auf der Karte)"
+
+msgctxt "nereid:party.py:22"
+msgid "Card Number"
+msgstr "Kartennummer"
+
+msgctxt "nereid:party.py:25"
+msgid "Card Expiry Month"
+msgstr "Gültigkeitsmonat"
+
 msgctxt "nereid:party.py:28"
 msgid "01-January"
 msgstr "01-Januar"
@@ -69,6 +81,14 @@ msgstr "11-November"
 msgctxt "nereid:party.py:39"
 msgid "12-December"
 msgstr "12-Dezember"
+
+msgctxt "nereid:party.py:46"
+msgid "Card Expiry Year"
+msgstr "Gültigkeitsjahr"
+
+msgctxt "nereid:party.py:51"
+msgid "CVD/CVV Number"
+msgstr "CVD/CVV Nummer"
 
 msgctxt "view:nereid.website:"
 msgid "Checkout Configuration"
