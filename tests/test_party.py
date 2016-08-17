@@ -4,13 +4,14 @@ import unittest
 import json
 import pycountry
 import trytond.tests.test_tryton
-from trytond.tests.test_tryton import POOL, USER, DB_NAME, CONTEXT
+from trytond.tests.test_tryton import POOL, USER, ModuleTestCase, \
+    with_transaction
 from trytond.transaction import Transaction
 from nereid.testing import NereidTestCase
 from nereid import current_user
 
 
-class TestCreditCard(NereidTestCase):
+class TestCreditCard(NereidTestCase, ModuleTestCase):
     "Test Payment profiles"
 
     module = 'nereid_payment_gateway'
@@ -182,71 +183,72 @@ class TestCreditCard(NereidTestCase):
             'countries': [('add', self.available_countries)],
         }])
 
+    @with_transaction()
     def test_0010_add_payment_profile(self):
         """
         Test to add a new payment profile.
         """
         Address = POOL.get('party.address')
 
-        with Transaction().start(DB_NAME, USER, CONTEXT):
-            self.setup_defaults()
-            app = self.get_app()
+        self.setup_defaults()
+        app = self.get_app()
 
-            with app.test_client() as c:
+        with app.test_client() as c:
 
-                self.login(c, 'email@example.com', 'password')
+            self.login(c, 'email@example.com', 'password')
 
-                address, = Address.create([{
-                    'party': self.party2.id,
-                    'name': 'Name',
-                    'street': 'Street',
-                    'streetbis': 'StreetBis',
-                    'zip': 'zip',
-                    'city': 'City',
-                    'country': self.available_countries[0].id,
-                    'subdivision':
-                        self.available_countries[0].subdivisions[0].id,
-                }])
-                # Define a new payment gateway
-                self._create_dummy_gateway_for_site()
+            address, = Address.create([{
+                'party': self.party2.id,
+                'name': 'Name',
+                'street': 'Street',
+                'streetbis': 'StreetBis',
+                'zip': 'zip',
+                'city': 'City',
+                'country': self.available_countries[0].id,
+                'subdivision':
+                    self.available_countries[0].subdivisions[0].id,
+            }])
+            # Define a new payment gateway
+            self._create_dummy_gateway_for_site()
+            self.assertEqual(
+                len(current_user.party.payment_profiles), 0
+            )
+
+            with Transaction().set_context({'dummy_succeed': True}):
+                rv = c.post(
+                    '/my-cards/add-card',
+                    data={
+                        'owner': 'Test User 1',
+                        'number': '4111111111111111',
+                        'expiry_month': '01',
+                        'expiry_year': '2018',
+                        'cvv': '123',
+                        'address': address.id,
+                    }
+                )
                 self.assertEqual(
-                    len(current_user.party.payment_profiles), 0
+                    len(current_user.party.payment_profiles), 1
                 )
 
-                with Transaction().set_context({'dummy_succeed': True}):
-                    rv = c.post(
-                        '/my-cards/add-card',
-                        data={
-                            'owner': 'Test User 1',
-                            'number': '4111111111111111',
-                            'expiry_month': '01',
-                            'expiry_year': '2018',
-                            'cvv': '123',
-                            'address': address.id,
-                        }
-                    )
-                    self.assertEqual(
-                        len(current_user.party.payment_profiles), 1
-                    )
+                # Test to handel xhr request
+                rv = c.post(
+                    '/my-cards/add-card',
+                    data={
+                        'owner': 'Test User 2',
+                        'number': '4111111111111111',
+                        'expiry_month': '05',
+                        'expiry_year': '2020',
+                        'cvv': '111',
+                        'address': address.id,
+                    }, headers=[('X-Requested-With', 'XMLHttpRequest')]
 
-                    # Test to handel xhr request
-                    rv = c.post(
-                        '/my-cards/add-card',
-                        data={
-                            'owner': 'Test User 2',
-                            'number': '4111111111111111',
-                            'expiry_month': '05',
-                            'expiry_year': '2020',
-                            'cvv': '111',
-                            'address': address.id,
-                        }, headers=[('X-Requested-With', 'XMLHttpRequest')]
+                )
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 2
+                )
+                self.assertEqual(rv.status_code, 200)
 
-                    )
-                    self.assertEqual(
-                        len(current_user.party.payment_profiles), 2
-                    )
-                    self.assertEqual(rv.status_code, 200)
-
+    @with_transaction()
     def test_0020_view_payment_profiles(self):
         """
         Test to view stored credit cards.
@@ -257,127 +259,127 @@ class TestCreditCard(NereidTestCase):
         Gateway = POOL.get('payment_gateway.gateway')
         Journal = POOL.get('account.journal')
 
-        with Transaction().start(DB_NAME, USER, CONTEXT):
-            self.setup_defaults()
-            app = self.get_app()
+        self.setup_defaults()
+        app = self.get_app()
 
-            with app.test_client() as c:
-                self.login(c, 'email@example.com', 'password')
+        with app.test_client() as c:
+            self.login(c, 'email@example.com', 'password')
 
-                address, = Address.create([{
-                    'party': self.party2.id,
-                    'name': 'Name',
-                    'street': 'Street',
-                    'streetbis': 'StreetBis',
-                    'zip': 'zip',
-                    'city': 'City',
-                    'country': self.available_countries[0].id,
-                    'subdivision':
-                        self.available_countries[0].subdivisions[0].id,
-                }])
+            address, = Address.create([{
+                'party': self.party2.id,
+                'name': 'Name',
+                'street': 'Street',
+                'streetbis': 'StreetBis',
+                'zip': 'zip',
+                'city': 'City',
+                'country': self.available_countries[0].id,
+                'subdivision':
+                    self.available_countries[0].subdivisions[0].id,
+            }])
 
-                self._create_dummy_gateway_for_site()
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 0
-                )
+            self._create_dummy_gateway_for_site()
+            self.assertEqual(
+                len(current_user.party.payment_profiles), 0
+            )
 
-                gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
+            gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
+
+            rv = c.get('/my-cards')
+            self.assertEqual(rv.data, '0')
+
+            cash_journal, = Journal.search([
+                ('name', '=', 'Cash')
+            ])
+            profile, = Profile.create([{
+                'last_4_digits': '1111',
+                'sequence': '10',
+                'expiry_month': '01',
+                'expiry_year': '2018',
+                'address': address.id,
+                'party': current_user.party.id,
+                'provider_reference': '27478839|25062702',
+                'gateway': gateway.id,
+            }])
+
+            with Transaction().set_context({'dummy_succeed': True}):
 
                 rv = c.get('/my-cards')
-                self.assertEqual(rv.data, '0')
+                self.assertEqual(rv.data, '1')
 
-                cash_journal, = Journal.search([
-                    ('name', '=', 'Cash')
-                ])
-                profile, = Profile.create([{
-                    'last_4_digits': '1111',
-                    'sequence': '10',
-                    'expiry_month': '01',
-                    'expiry_year': '2018',
-                    'address': address.id,
-                    'party': current_user.party.id,
-                    'provider_reference': '27478839|25062702',
-                    'gateway': gateway.id,
-                }])
+            profile, = Profile.create([{
+                'last_4_digits': '1131',
+                'sequence': '10',
+                'expiry_month': '02',
+                'expiry_year': '2018',
+                'address': address.id,
+                'party': current_user.party.id,
+                'provider_reference': '27478839|25062710',
+                'gateway': gateway.id,
+            }])
 
-                with Transaction().set_context({'dummy_succeed': True}):
+            with Transaction().set_context({'dummy_succeed': True}):
+                rv = c.get('/my-cards')
+                self.assertEqual(rv.data, '2')
 
-                    rv = c.get('/my-cards')
-                    self.assertEqual(rv.data, '1')
+            # Test to handel xhr request
+            rv = c.get(
+                'my-cards',
+                headers=[('X-Requested-With', 'XMLHttpRequest')]
+            )
+            json_data = json.loads(rv.data)['payment_profile']
 
-                profile, = Profile.create([{
-                    'last_4_digits': '1131',
-                    'sequence': '10',
-                    'expiry_month': '02',
-                    'expiry_year': '2018',
-                    'address': address.id,
-                    'party': current_user.party.id,
-                    'provider_reference': '27478839|25062710',
-                    'gateway': gateway.id,
-                }])
+            self.assertEqual(len(json_data), 2)
+            self.assertEqual(json_data[0]['last_4_digits'], '1111')
+            self.assertEqual(json_data[1]['last_4_digits'], '1131')
 
-                with Transaction().set_context({'dummy_succeed': True}):
-                    rv = c.get('/my-cards')
-                    self.assertEqual(rv.data, '2')
-
-                # Test to handel xhr request
-                rv = c.get(
-                    'my-cards',
-                    headers=[('X-Requested-With', 'XMLHttpRequest')]
-                )
-                json_data = json.loads(rv.data)['payment_profile']
-
-                self.assertEqual(len(json_data), 2)
-                self.assertEqual(json_data[0]['last_4_digits'], '1111')
-                self.assertEqual(json_data[1]['last_4_digits'], '1131')
-
+    @with_transaction()
     def test_0040_add_card_with_invalid_address(self):
         """
         Test for user trying to add card with invalid billing address.
         """
         Address = POOL.get('party.address')
 
-        with Transaction().start(DB_NAME, USER, CONTEXT):
-            self.setup_defaults()
-            app = self.get_app()
+        self.setup_defaults()
+        app = self.get_app()
 
-            with app.test_client() as c:
+        with app.test_client() as c:
 
-                self.login(c, 'email@example.com', 'password')
+            self.login(c, 'email@example.com', 'password')
 
-                address, = Address.create([{
-                    'party': self.party2.id,
-                    'name': 'Name',
-                    'street': 'Street',
-                    'streetbis': 'StreetBis',
-                    'zip': 'zip',
-                    'city': 'City',
-                    'country': self.available_countries[0].id,
-                    'subdivision':
-                        self.available_countries[0].subdivisions[0].id,
-                }])
-                # Define a new payment gateway
-                self._create_dummy_gateway_for_site()
+            address, = Address.create([{
+                'party': self.party2.id,
+                'name': 'Name',
+                'street': 'Street',
+                'streetbis': 'StreetBis',
+                'zip': 'zip',
+                'city': 'City',
+                'country': self.available_countries[0].id,
+                'subdivision':
+                    self.available_countries[0].subdivisions[0].id,
+            }])
+            # Define a new payment gateway
+            self._create_dummy_gateway_for_site()
 
-                with Transaction().set_context({'dummy_succeed': True}):
+            with Transaction().set_context({'dummy_succeed': True}):
 
-                    # request to add credit card with invalid card number
-                    rv = c.post(
-                        '/my-cards/add-card',
-                        data={
-                            'owner': 'Test User',
-                            'number': '4111111111111111',
-                            'expiry_month': '01',
-                            'expiry_year': '2018',
-                            'cvv': '111',
-                            'address': 123,
-                        }
-                    )
-                self.assertTrue(
-                    'Address you selected is not valid.'
-                    in rv.data
+                # request to add credit card with invalid card number
+                rv = c.post(
+                    '/my-cards/add-card',
+                    data={
+                        'owner': 'Test User',
+                        'number': '4111111111111111',
+                        'expiry_month': '01',
+                        'expiry_year': '2018',
+                        'cvv': '111',
+                        'address': 123,
+                    }
                 )
+            self.assertTrue(
+                'Address you selected is not valid.'
+                in rv.data
+            )
 
+    @with_transaction()
     def test_0050_remove_payment_profile(self):
         """
         Test to inactivate payment profile when user want to remove it.
@@ -387,87 +389,87 @@ class TestCreditCard(NereidTestCase):
         Gateway = POOL.get('payment_gateway.gateway')
         Journal = POOL.get('account.journal')
 
-        with Transaction().start(DB_NAME, USER, CONTEXT):
-            self.setup_defaults()
-            app = self.get_app()
+        self.setup_defaults()
+        app = self.get_app()
 
-            with app.test_client() as c:
-                self.login(c, 'email@example.com', 'password')
+        with app.test_client() as c:
+            self.login(c, 'email@example.com', 'password')
 
-                address, = Address.create([{
-                    'party': self.party2.id,
-                    'name': 'Name',
-                    'street': 'Street',
-                    'streetbis': 'StreetBis',
-                    'zip': 'zip',
-                    'city': 'City',
-                    'country': self.available_countries[0].id,
-                    'subdivision':
-                        self.available_countries[0].subdivisions[0].id,
-                }])
+            address, = Address.create([{
+                'party': self.party2.id,
+                'name': 'Name',
+                'street': 'Street',
+                'streetbis': 'StreetBis',
+                'zip': 'zip',
+                'city': 'City',
+                'country': self.available_countries[0].id,
+                'subdivision':
+                    self.available_countries[0].subdivisions[0].id,
+            }])
 
-                self._create_dummy_gateway_for_site()
-                cash_journal, = Journal.search([
-                    ('name', '=', 'Cash')
-                ])
-                gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
+            self._create_dummy_gateway_for_site()
+            cash_journal, = Journal.search([
+                ('name', '=', 'Cash')
+            ])
+            gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
 
+            self.assertEqual(
+                len(current_user.party.payment_profiles), 0
+            )
+            profile1, = Profile.create([{
+                'last_4_digits': '1111',
+                'sequence': '10',
+                'expiry_month': '01',
+                'expiry_year': '2018',
+                'address': address.id,
+                'party': current_user.party.id,
+                'provider_reference': '27478839|25062702',
+                'gateway': gateway.id,
+            }])
+
+            profile2, = Profile.create([{
+                'last_4_digits': '1131',
+                'sequence': '10',
+                'expiry_month': '02',
+                'expiry_year': '2018',
+                'address': address.id,
+                'party': current_user.party.id,
+                'provider_reference': '27478839|25062710',
+                'gateway': gateway.id,
+            }])
+
+            self.assertEqual(
+                len(current_user.party.payment_profiles), 2
+            )
+
+            with Transaction().set_context({'dummy_succeed': True}):
+
+                rv = c.post(
+                    '/my-cards/remove-card',
+                    data={
+                        'profile_id':
+                        current_user.party.payment_profiles[0].id,
+                    }
+                )
+
+                self.assertEqual(rv.status_code, 302)
+                self.assertEqual(
+                    len(current_user.party.payment_profiles), 1
+                )
+                # Remove payment profile by xhr request
+                rv = c.post(
+                    '/my-cards/remove-card',
+                    data={
+                        'profile_id':
+                        current_user.party.payment_profiles[0].id,
+                    }, headers=[('X-Requested-With', 'XMLHttpRequest')]
+                )
+                self.assertEqual(rv.status_code, 200)
                 self.assertEqual(
                     len(current_user.party.payment_profiles), 0
                 )
-                profile1, = Profile.create([{
-                    'last_4_digits': '1111',
-                    'sequence': '10',
-                    'expiry_month': '01',
-                    'expiry_year': '2018',
-                    'address': address.id,
-                    'party': current_user.party.id,
-                    'provider_reference': '27478839|25062702',
-                    'gateway': gateway.id,
-                }])
 
-                profile2, = Profile.create([{
-                    'last_4_digits': '1131',
-                    'sequence': '10',
-                    'expiry_month': '02',
-                    'expiry_year': '2018',
-                    'address': address.id,
-                    'party': current_user.party.id,
-                    'provider_reference': '27478839|25062710',
-                    'gateway': gateway.id,
-                }])
-
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 2
-                )
-
-                with Transaction().set_context({'dummy_succeed': True}):
-
-                    rv = c.post(
-                        '/my-cards/remove-card',
-                        data={
-                            'profile_id':
-                            current_user.party.payment_profiles[0].id,
-                        }
-                    )
-
-                    self.assertEqual(rv.status_code, 302)
-                    self.assertEqual(
-                        len(current_user.party.payment_profiles), 1
-                    )
-                    # Remove payment profile by xhr request
-                    rv = c.post(
-                        '/my-cards/remove-card',
-                        data={
-                            'profile_id':
-                            current_user.party.payment_profiles[0].id,
-                        }, headers=[('X-Requested-With', 'XMLHttpRequest')]
-                    )
-                    self.assertEqual(rv.status_code, 200)
-                    self.assertEqual(
-                        len(current_user.party.payment_profiles), 0
-                    )
-
+    @with_transaction()
     def test_0060_remove_invalid_payment_profile(self):
         """
         Test to check if payment profile user wants to remove is valid.
@@ -477,61 +479,60 @@ class TestCreditCard(NereidTestCase):
         Gateway = POOL.get('payment_gateway.gateway')
         Journal = POOL.get('account.journal')
 
-        with Transaction().start(DB_NAME, USER, CONTEXT):
-            self.setup_defaults()
-            app = self.get_app()
+        self.setup_defaults()
+        app = self.get_app()
 
-            with app.test_client() as c:
-                self.login(c, 'email@example.com', 'password')
+        with app.test_client() as c:
+            self.login(c, 'email@example.com', 'password')
 
-                address, = Address.create([{
-                    'party': self.party2.id,
-                    'name': 'Name',
-                    'street': 'Street',
-                    'streetbis': 'StreetBis',
-                    'zip': 'zip',
-                    'city': 'City',
-                    'country': self.available_countries[0].id,
-                    'subdivision':
-                        self.available_countries[0].subdivisions[0].id,
-                }])
+            address, = Address.create([{
+                'party': self.party2.id,
+                'name': 'Name',
+                'street': 'Street',
+                'streetbis': 'StreetBis',
+                'zip': 'zip',
+                'city': 'City',
+                'country': self.available_countries[0].id,
+                'subdivision':
+                    self.available_countries[0].subdivisions[0].id,
+            }])
 
-                self._create_dummy_gateway_for_site()
-                cash_journal, = Journal.search([
-                    ('name', '=', 'Cash')
-                ])
-                gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
+            self._create_dummy_gateway_for_site()
+            cash_journal, = Journal.search([
+                ('name', '=', 'Cash')
+            ])
+            gateway, = Gateway.search(['name', '=', 'Dummy Gateway'])
 
-                self.assertEqual(
-                    len(current_user.party.payment_profiles), 0
+            self.assertEqual(
+                len(current_user.party.payment_profiles), 0
+            )
+            profile1, = Profile.create([{
+                'last_4_digits': '1111',
+                'sequence': '10',
+                'expiry_month': '01',
+                'expiry_year': '2018',
+                'address': address.id,
+                'party': current_user.party.id,
+                'provider_reference': '27478839|25062702',
+                'gateway': gateway.id,
+            }])
+
+            self.assertEqual(
+                len(current_user.party.payment_profiles), 1
+            )
+
+            with Transaction().set_context({'dummy_succeed': True}):
+
+                rv = c.post(
+                    '/my-cards/remove-card',
+                    data={
+                        'profile_id': 123,
+                    }
                 )
-                profile1, = Profile.create([{
-                    'last_4_digits': '1111',
-                    'sequence': '10',
-                    'expiry_month': '01',
-                    'expiry_year': '2018',
-                    'address': address.id,
-                    'party': current_user.party.id,
-                    'provider_reference': '27478839|25062702',
-                    'gateway': gateway.id,
-                }])
-
+                self.assertEqual(rv.status_code, 403)
                 self.assertEqual(
                     len(current_user.party.payment_profiles), 1
                 )
-
-                with Transaction().set_context({'dummy_succeed': True}):
-
-                    rv = c.post(
-                        '/my-cards/remove-card',
-                        data={
-                            'profile_id': 123,
-                        }
-                    )
-                    self.assertEqual(rv.status_code, 403)
-                    self.assertEqual(
-                        len(current_user.party.payment_profiles), 1
-                    )
 
 
 def suite():

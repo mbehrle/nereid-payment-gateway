@@ -3,7 +3,7 @@ from datetime import datetime
 
 from trytond.pool import PoolMeta, Pool
 from nereid import route, login_required, render_template, request, \
-    current_user, redirect, url_for, flash, jsonify, abort
+    current_user, redirect, url_for, flash, jsonify, abort, current_website
 from flask_wtf import Form
 from wtforms import TextField, validators, \
     ValidationError, SelectField, IntegerField
@@ -105,7 +105,7 @@ class Party:
         )
         Address = Pool().get('party.address')
 
-        gateway = request.nereid_website.credit_card_gateway
+        gateway = current_website.credit_card_gateway
         form = PaymentProfileForm()
 
         if form.validate_on_submit():
