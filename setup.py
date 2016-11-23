@@ -103,10 +103,10 @@ minor_version = int(minor_version)
 requires = []
 
 MODULE = "nereid_payment_gateway"
-PREFIX = "fio"
+PREFIX = "m9s"
 
 MODULE2PREFIX = {
-    'payment_gateway': 'fio',
+    'payment_gateway': 'm9s',
 }
 for dep in info.get('depends', []):
     if not re.match(r'(ir|res|webdav)(\W|$)', dep):
