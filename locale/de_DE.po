@@ -10,6 +10,10 @@ msgctxt "field:nereid.website,credit_card_gateway:"
 msgid "Credit Card Gateway"
 msgstr "Kreditkartengateway"
 
+msgctxt "field:nereid.website,instructions:"
+msgid "Credit Card Instructions"
+msgstr "Kreditkarte Instruktionen"
+
 msgctxt "field:nereid.website,save_payment_profile:"
 msgid "Allow Saving Payment Profiles"
 msgstr "Speicherung von Zahlungsprofilen erlauben"
@@ -97,3 +101,7 @@ msgstr "Checkout Einstellungen"
 msgctxt "view:nereid.website:"
 msgid "Credit Card"
 msgstr "Kreditkarte"
+
+msgctxt "view:nereid.website:"
+msgid "Credit Card Instructions"
+msgstr "Kreditkarte Instruktionen"
