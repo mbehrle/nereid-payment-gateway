@@ -24,4 +24,4 @@ class Website:
         }, depends=['accept_credit_card'],
         domain=[('method', '=', 'credit_card')]
     )
-    instructions = fields.Text('Credit Card Instructions')
+    instructions = fields.Text('Credit Card Instructions', translate=True)
